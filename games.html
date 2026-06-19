@@ -241,9 +241,25 @@
             border: 1px solid #7f1d1d;
         }
 
-        .card-actions{
-            padding:0 14px 14px;
-        }
+.card-actions{
+    padding:0 14px 14px;
+    display:flex;
+    gap:10px;
+}
+
+.favorite-btn{
+    width:55px;
+    border:none;
+    border-radius:14px;
+    background:#232323;
+    color:#fff;
+    font-size:1.4rem;
+    cursor:pointer;
+}
+
+.favorite-btn.active{
+    background:#ff2d55;
+} 
 
         .add-btn{
             width:100%;
@@ -430,6 +446,8 @@
 
     let cart = JSON.parse(localStorage.getItem('ifix_cart')) || [];
     let allGames = [];
+    let currentUser = null;
+let favorites = [];
 
     /* UPDATE CART */
     function updateCartUI(){
@@ -525,10 +543,19 @@
                             </div>
                         </a>
                         <div class="card-actions">
-                            <button class="add-btn ${isAdded ? 'added' : ''}" onclick="toggleCart(this, '${cleanName}', '${gameSize}')">
-                                ${isAdded ? '✅ تم الاختيار' : '➕ إضافة للطلب'}
-                            </button>
-                        </div>
+
+    <button
+        class="favorite-btn ${favorites.includes(gameName) ? 'active' : ''}"
+        onclick="toggleFavorite('${cleanName}', this)">
+        ${favorites.includes(gameName) ? '❤️' : '🤍'}
+    </button>
+
+    <button class="add-btn ${isAdded ? 'added' : ''}"
+        onclick="toggleCart(this, '${cleanName}', '${gameSize}')">
+        ${isAdded ? '✅ تم الاختيار' : '➕ إضافة للطلب'}
+    </button>
+
+</div>
                     </div>
                 `;
             }
@@ -558,6 +585,131 @@
             updateCartUI();
         }
     });
+</script>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+
+import {
+  getAuth,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBE2-qaGOOlmhn9QA01J5wizJ_CcMMh7qE",
+  authDomain: "ifix-store-eecd9.firebaseapp.com",
+  projectId: "ifix-store-eecd9",
+  storageBucket: "ifix-store-eecd9.firebasestorage.app",
+  messagingSenderId: "862863699996",
+  appId: "1:862863699996:web:7af653f4de7d0baa0fafd9"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+onAuthStateChanged(auth, async (user)=>{
+
+    if(!user) return;
+
+    currentUser = user;
+
+    const ref = doc(db,"favorites",user.uid);
+    const snap = await getDoc(ref);
+
+    if(snap.exists()){
+        favorites = snap.data().games || [];
+    }
+
+    renderGames(allGames);
+});
+
+window.toggleFavorite = async function(gameName, btn){
+
+    if(!currentUser){
+        alert("سجل دخول أولاً ❤️");
+        return;
+    }
+
+    const index = favorites.indexOf(gameName);
+
+    if(index > -1){
+
+        favorites.splice(index,1);
+
+        btn.innerHTML = "🤍";
+        btn.classList.remove("active");
+
+        showToast("تم حذف اللعبة من المفضلة");
+
+    }else{
+
+        favorites.push(gameName);
+
+        btn.innerHTML = "❤️";
+        btn.classList.add("active");
+
+        showToast("تمت الإضافة للمفضلة ❤️");
+    }
+
+    await setDoc(
+      doc(db,"favorites",currentUser.uid),
+      {
+        games:favorites
+      },
+      {merge:true}
+    );
+}
+
+</script>
+
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+
+import {
+  getAuth,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBE2-qaGOOlmhn9QA01J5wizJ_CcMMh7qE",
+  authDomain: "ifix-store-eecd9.firebaseapp.com",
+  projectId: "ifix-store-eecd9",
+  storageBucket: "ifix-store-eecd9.firebasestorage.app",
+  messagingSenderId: "862863699996",
+  appId: "1:862863699996:web:7af653f4de7d0baa0fafd9"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+onAuthStateChanged(auth, (user) => {
+
+    if(user){
+        console.log("المستخدم:", user.displayName);
+
+        // هنا تقدر تعرض اسمه
+        // أو تجيب المفضلة
+        // أو تفعل الإشعارات
+
+    }else{
+
+        console.log("غير مسجل دخول");
+
+    }
+
+});
+
 </script>
 
 </body>
