@@ -51,3 +51,24 @@ loginBtn.addEventListener("click", async () => {
 
   loginBtn.style.display = "none";
 });
+
+
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+onAuthStateChanged(auth, (user) => {
+
+  if (user) {
+
+    console.log("User Logged:", user.displayName);
+
+    document.getElementById("userName").innerHTML =
+      "مرحباً " + user.displayName + " 👋";
+
+    document.getElementById("loginBtn").style.display = "none";
+
+  }
+
+});
