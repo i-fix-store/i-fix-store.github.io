@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تفاصيل اللعبة | iFix Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: sans-serif; }
+        /* تأثير التدرج الأسود فوق صورة الخلفية عشان النص يبان بوضوح */
+        .hero-gradient {
+            background: linear-gradient(to bottom, rgba(18, 18, 18, 0.3) 0%, rgba(18, 18, 18, 0.85) 70%, rgba(18, 18, 18, 1) 100%);
+        }
+    </style>
+</head>
+<body class="pb-12">
+
+    <!-- رسالة التحميل في البداية -->
+    <div id="loading" class="text-center py-20 text-xl text-neutral-500">جاري تحميل تفاصيل اللعبة...</div>
+
+    <!-- الحاوية الرئيسية للتفاصيل (مخفية لحد ما الداتا تحمل) -->
+    <div id="game-details" class="hidden">
+        
+        <!-- قسم الهيرو السينمائي (زي موقع بلايستيشن) -->
+        <div class="relative w-full h-[60vh] md:h-[75vh] bg-cover bg-center" id="hero-bg">
+            <div class="absolute inset-0 hero-gradient"></div>
+            
+            <!-- زر العودة واسم اللعبة فوق الخلفية -->
+            <div class="absolute inset-0 flex flex-col justify-between p-4 md:p-8 max-w-5xl mx-auto w-full">
+                <a href="index.html" class="inline-block bg-black/40 backdrop-blur-md text-white hover:text-blue-400 font-bold px-4 py-2 rounded-full self-start transition" style="text-decoration: none;">
+                    ← العودة للرئيسية
+                </a>
+                
+                <div class="mb-4">
+                    <!-- اسم اللعبة كبير وأبيض -->
+                    <h1 id="game-title" class="text-4xl md:text-6xl font-black text-white drop-shadow-lg mb-4"></h1>
+                    
+                    <!-- تاجات نوع اللعبة (اكشن، رعب، زوجي) بتنزل هنا تلقائي -->
+                    <div id="game-tags" class="flex flex-wrap gap-2 text-sm md:text-base">
+                        <span class="bg-blue-600 text-white font-bold px-3 py-1 rounded-md">PS4</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- قسم السعر، الوصف، والفيديو -->
+        <div class="max-w-5xl mx-auto px-4 md:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 mt-4">
+            
+            <!-- على اليمين: الوصف والفيديو -->
+            <div class="md:col-span-2 space-y-6">
+                <div class="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
+                    <h2 class="text-xl font-bold mb-3 text-blue-500">عن اللعبة:</h2>
+                    <p id="game-desc" class="text-neutral-300 text-lg leading-relaxed"></p>
+                </div>
+
+                <!-- فيديو التريلر -->
+                <div id="trailer-section" class="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
+                    <h2 class="text-xl font-bold mb-4 text-blue-500">فيديو استعراض اللعبة (Trailer):</h2>
+                    <div class="relative h-0 pb-[56.25%] rounded-xl overflow-hidden shadow-inner">
+                        <iframe id="game-trailer" class="absolute top-0 left-0 w-full h-full" src="" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- على الشمال: بوكس الشراء والسعر (ثابت وشيك) -->
+            <div class="space-y-4">
+                <div class="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 text-center sticky top-6">
+                    <div class="text-sm text-neutral-400 mb-1">نسخة كاملة معدلة</div>
+                    <div class="text-4xl font-black text-emerald-400 mb-6" id="game-price"></div>
+                    
+                    <a href="https://wa.me/201000000000" class="block text-center bg-blue-600 hover:bg-blue-500 text-white font-black py-4 px-6 rounded-xl transition duration-300 shadow-lg text-lg" style="text-decoration: none;">
+                        اطلب اللعبة الآن 🎮
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- مكتبة PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameName = urlParams.get('game');
+        
+        const mySheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRRVnRxp4qoV0Bcalik_KJx3ITqdm-b4HyVjATJCbveQ3VmTKfMIqrLYJvJnPMh0XW_XjSGCP6Bx9UL/pub?output=csv';
+
+        // السطر السحري لتغيير السعر الموحد في صفحة التفاصيل
+        const DEFAULT_PRICE = "25";
+
+        if (gameName) {
+            Papa.parse(mySheetURL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const games = results.data;
+                    const game = games.find(g => g.name && g.name.trim() === decodeURIComponent(gameName));
+
+                    if (game) {
+                        // 1. وضع اسم اللعبة والوصف والصورة كخلفية سينمائية
+                        document.getElementById('game-title').innerText = game.name;
+                        document.getElementById('hero-bg').style.backgroundImage = `url('${game.img.trim()}')`;
+                        document.getElementById('game-desc').innerText = game.description || 'لا يوجد وصف متاح حالياً لهذه اللعبة.';
+                        
+                        // 2. فحص السعر: لو فاضي يحط السعر الافتراضي الموحد (25)
+                        const finalPrice = (game.price && game.price.trim() !== "") ? game.price.trim() : DEFAULT_PRICE;
+                        document.getElementById('game-price').innerText = finalPrice + ' ج.م';
+                        
+                        // 3. قراءة عمود النوع (link) وتقسيمه لو كاتب كذا حاجة
+                        if (game.link) {
+                            const tagsContainer = document.getElementById('game-tags');
+                            const categories = game.link.split(/&|,/); 
+                            categories.forEach(cat => {
+                                if(cat.trim() !== "") {
+                                    const tagSpan = document.createElement('span');
+                                    tagSpan.className = "bg-neutral-800 text-neutral-200 font-semibold px-3 py-1 rounded-md border border-neutral-700";
+                                    tagSpan.innerText = cat.trim();
+                                    tagsContainer.appendChild(tagSpan);
+                                }
+                            });
+                        }
+
+                        // 4. تشغيل التريلر
+                        if(game.trailer && game.trailer.trim() !== "") {
+                            document.getElementById('game-trailer').src = game.trailer.trim();
+                        } else {
+                            document.getElementById('trailer-section').style.display = 'none';
+                        }
+
+                        // إظهار الصفحة
+                        document.getElementById('loading').classList.add('hidden');
+                        document.getElementById('game-details').classList.remove('hidden');
+                    } else {
+                        document.getElementById('loading').innerText = 'عذراً، لم يتم العثور على اللعبة!';
+                    }
+                },
+                error: function() {
+                    document.getElementById('loading').innerText = 'حدث خطأ أثناء تحميل البيانات.';
+                }
+            });
+        } else {
+            document.getElementById('loading').innerText = 'رابط غير صحيح!';
+        }
+    </script>
+</body>
+</html>
