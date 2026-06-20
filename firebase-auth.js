@@ -53,12 +53,32 @@ loginBtn.addEventListener("click", async () => {
 });
 
 
-
 import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
 onAuthStateChanged(auth, (user) => {
+const loginBtn = document.getElementById("loginBtn");
+const profileBox = document.getElementById("userProfileBox");
+
+if(user){
+
+    loginBtn.style.display = "none";
+
+    profileBox.style.display = "block";
+
+    document.getElementById("headerUserPhoto").src =
+      user.photoURL;
+
+}else{
+
+    loginBtn.style.display = "flex";
+
+    profileBox.style.display = "none";
+
+}
+
+
 
   if (user) {
 
@@ -70,5 +90,14 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("loginBtn").style.display = "none";
 
   }
+
+});
+
+
+document
+.getElementById("userProfileBox")
+.addEventListener("click",()=>{
+
+    window.location.href="profile.html";
 
 });
