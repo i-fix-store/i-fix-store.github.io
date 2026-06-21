@@ -159,56 +159,45 @@
                 return;
             }
 
-            const btn = document.getElementById("sendOrderBtn");
-            btn.innerText = "جاري حفظ الطلب بالسيستم... ⏳";
-            btn.disabled = true;
+            // 1. بناء رسالة الواتساب وتجهيز الرابط فوراً لحل مشكلة عدم الفتح
+            let message = `*طلب تعديل ألعاب بلايستيشن جديد - iFix Store* 🎮\n\n`;
+            message += `👤 *اسم العميل:* ${name}\n`;
+            message += `📍 *الفرع المراد الاستلام منه:* فرع ${branch}\n`;
+            message += `💾 *سعة هارد الجهاز الحالي:* ${hardText}\n`;
+            message += `📊 *إجمالي مساحة الطلب:* ${totalSpace} جيجا\n`;
+            message += `-------------------------------------------\n`;
+            message += `📋 *الألعاب المطلوبة بالتفصيل:* \n`;
 
-            try {
-                // 1. حفظ الطلب في الـ Firestore مع حقل status الافتراضي "pending"
-                await addDoc(collection(db, "orders"), {
-                    userName: name,
-                    userEmail: currentUserEmail,
-                    branch: branch,
-                    games: cart, 
-                    totalPrice: totalPrice,
-                    status: "pending", 
-                    createdAt: new Date() 
-                });
+            cart.forEach((item, index) => {
+                message += `${index + 1}. ${item.name} (${item.size} جيجا)\n`;
+            });
 
-                // 2. بناء رسالة الواتساب بالترتيب والتفاصيل
-                let message = `*طلب تعديل ألعاب بلايستيشن جديد - iFix Store* 🎮\n\n`;
-                message += `👤 *اسم العميل:* ${name}\n`;
-                message += `📍 *الفرع المراد الاستلام منه:* فرع ${branch}\n`;
-                message += `💾 *سعة هارد الجهاز الحالي:* ${hardText}\n`;
-                message += `📊 *إجمالي مساحة الطلب:* ${totalSpace} جيجا\n`;
-                message += `-------------------------------------------\n`;
-                message += `📋 *الألعاب المطلوبة بالتفصيل:* \n`;
+            message += `\n-------------------------------------------\n`;
+            message += `💰 *عدد الألعاب الكلي:* ${cart.length} لعبة\n`;
+            message += `💵 *حساب التنزيل الإجمالي:* ${totalPrice} ج.م`;
 
-                cart.forEach((item, index) => {
-                    message += `${index + 1}. ${item.name} (${item.size} جيجا)\n`;
-                });
+            const encodedMsg = encodeURIComponent(message);
+            const storePhoneNumber = "201281398314"; 
+            const whatsappUrl = `https://wa.me/${storePhoneNumber}?text=${encodedMsg}`;
 
-                message += `\n-------------------------------------------\n`;
-                message += `💰 *عدد الألعاب الكلي:* ${cart.length} لعبة\n`;
-                message += `💵 *حساب التنزيل الإجمالي:* ${totalPrice} ج.م`;
+            // 2. حفظ البيانات في الفايربيس "في الخلفية" كـ (Background Task) عشان ميعطلش التوجيه
+            addDoc(collection(db, "orders"), {
+                userName: name,
+                userEmail: currentUserEmail,
+                branch: branch,
+                games: cart, 
+                totalPrice: totalPrice,
+                status: "pending",
+                createdAt: new Date() 
+            }).then(() => {
+                console.log("تم حفظ الطلب بنجاح في قاعدة البيانات.");
+            }).catch((err) => {
+                console.error("خطأ صامت في الخلفية أثناء الحفظ:", err);
+            });
 
-                const encodedMsg = encodeURIComponent(message);
-                
-                // الرقم الجديد الخاص بالمحل للواتساب
-                const storePhoneNumber = "201281398314"; 
-                
-                // مسح السلة محلياً
-                localStorage.removeItem('ifix_cart');
-                
-                // فتح الواتساب فوراً بالرسالة المنسقة
-                window.location.href = `https://wa.me/${storePhoneNumber}?text=${encodedMsg}`;
-
-            } catch (error) {
-                console.error("خطأ أثناء حفظ الطلب:", error);
-                alert("حدث خطأ أثناء حفظ الطلب في السيرفر، يرجى المحاولة مرة أخرى.");
-                btn.innerText = "إرسال الطلب للمحل عبر واتساب ✅";
-                btn.disabled = false;
-            }
+            // 3. تفريغ السلة والتوجيه المباشر الفوري للواتساب بدون انتظار السيرفر
+            localStorage.removeItem('ifix_cart');
+            window.location.href = whatsappUrl;
         });
     </script>
 
