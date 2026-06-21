@@ -18,6 +18,8 @@
     --muted: #9ca3af;
     --ps-blue: #0070d1;
     --danger: #ef4444;
+    --success: #1ea362;
+    --warning: #fbbc05;
 }
 
 body {
@@ -95,6 +97,63 @@ body {
     font-size: 0.9rem;
 }
 
+/* ستايل قسم الطلبات الجديد */
+.orders-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 25px;
+    padding: 25px;
+    margin-top: 25px;
+}
+
+.orders-section h2 {
+    margin: 0 0 20px 0;
+    font-size: 1.3rem;
+    font-weight: 900;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+
+.order-item {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.order-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.order-info p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.order-status {
+    font-size: 0.9rem;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: 10px;
+}
+
+.status-pending {
+    color: var(--warning);
+    background: rgba(251, 188, 5, 0.1);
+}
+
+.status-completed {
+    color: var(--success);
+    background: rgba(30, 163, 98, 0.1);
+}
+
 .logout-btn {
     width: 100%;
     margin-top: 25px;
@@ -113,6 +172,17 @@ body {
     transform: scale(0.98);
     opacity: 0.9;
 }
+
+.back-link {
+    display: block;
+    text-align: center;
+    color: var(--muted);
+    text-decoration: none;
+    margin-top: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.back-link:hover { color: #fff; }
 </style>
 <body>
 <div class="profile-container">
@@ -141,16 +211,25 @@ body {
         </div>
     </div>
 
+    <div class="orders-section">
+        <h2>📦 طلباتي</h2>
+        <div id="orders-list">
+            <p style="text-center; color: var(--muted); font-size: 0.9rem; margin:0;">جاري تحميل طلباتك... 🔄</p>
+        </div>
+    </div>
+
     <button id="logoutBtn" class="logout-btn">
         🚪 تسجيل الخروج
     </button>
+
+    <a href="index.html" class="back-link">← العودة للمتجر الأساسي</a>
 
 </div>
 
 <script type="module" charset="utf-8">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBE2-qaGOOlmhn9QA01J5wizJ_CcMMh7qE",
@@ -181,7 +260,6 @@ onAuthStateChanged(auth, async(user)=>{
     nameEl.innerText = displayName;
     emailEl.innerText = user.email;
 
-    // دالة لتوليد وعرض الحرف البديل بشكل جميل في حال فشل رابط جوجل
     function showFallbackAvatar() {
         const firstLetter = displayName.trim().charAt(0).toUpperCase();
         letterEl.innerText = firstLetter;
@@ -193,42 +271,109 @@ onAuthStateChanged(auth, async(user)=>{
     }
 
     if (user.photoURL) {
-        // 1. تحويل الرابط إلى بروتوكول آمن https
         let cleanUrl = user.photoURL.replace("http://", "https://");
-        
-        // 2. تعديل جودة وحجم الصورة لطلب الحجم الأصلي المفتوح أمنياً من جوجل بدلاً من المقطع الصغير المحظور
         if (cleanUrl.includes("googleusercontent.com")) {
-            cleanUrl = cleanUrl.replace(/=s\d+-c/, "=s0"); // استبدال الحجم الافتراضي (s96) بالحجم الأصلي (s0)
+            cleanUrl = cleanUrl.replace(/=s\d+-c/, "=s0");
         }
-
-        // 3. محاولة تحميل الصورة
         photoEl.src = cleanUrl;
         photoEl.style.display = "block";
         letterEl.style.display = "none";
-
-        // 4. في حال استمر المتصفح في حظر الرابط وعرض علامة مكسورة، يتم تفعيل الحرف فوراً تلقائياً
-        photoEl.onerror = function() {
-            showFallbackAvatar();
-        };
+        photoEl.onerror = function() { showFallbackAvatar(); };
     } else {
         showFallbackAvatar();
     }
 
+    // 1. جلب المفضلة
     try {
         const favSnap = await getDoc(doc(db, "favorites", user.uid));
         let favCount = 0;
-
         if(favSnap.exists()){
             favCount = (favSnap.data().games || []).length;
         }
         document.getElementById("favCount").innerText = favCount;
-        
     } catch (error) {
-        console.error("حدث خطأ أثناء استدعاء بيانات المفضلة:", error);
+        console.error("خطأ بالمفضلة:", error);
     }
 
-    const cart = JSON.parse(localStorage.getItem("ifix_cart")) || [];
+    // 2. جلب السلة
+    const cart = JSON.parse(localStorage.getItem('ifix_cart')) || [];
     document.getElementById("cartCountProfile").innerText = cart.length;
+
+    // 3. 🔍 جلب وفلترة الطلبات الخاصة بالعميل من الفايربيس عرضها ديناميكياً
+    try {
+        const ordersListEl = document.getElementById("orders-list");
+        
+        // استعلام لجلب الطلبات اللي فيها الـ userEmail يساوي إيميل المستخدم الحالي، مرتبة بالأحدث
+        const q = query(
+            collection(db, "orders"), 
+            where("userEmail", "==", user.email),
+            orderBy("createdAt", "desc")
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            ordersListEl.innerHTML = `<p style="text-align:center; color:var(--muted); font-size:0.9rem; margin:0;">لم تقم بأي طلبات حتى الآن 🎮</p>`;
+        } else {
+            let htmlContent = "";
+            let orderNumber = querySnapshot.size; // عدد الطلبات الكلي للعد التنازلي
+
+            querySnapshot.forEach((docSnap) => {
+                const orderData = docSnap.data();
+                
+                // تحديد حالة الطلب (إذا لم تكن محددة بالفايربيس نعتبرها قيد الانتظار)
+                const status = orderData.status || "pending"; 
+                
+                let statusText = "⏳ قيد الانتظار";
+                let statusClass = "status-pending";
+
+                if (status === "completed" || status === "تم التنفيذ") {
+                    statusText = "✅ تم التنفيذ";
+                    statusClass = "status-completed";
+                }
+
+                // حساب عدد ألعاب هذا الطلب
+                const gamesCount = (orderData.games || []).length;
+
+                htmlContent += `
+                    <div class="order-item">
+                        <div class="order-info">
+                            <h3>طلب #${orderNumber}</h3>
+                            <p>عدد الألعاب: ${gamesCount} | الإجمالي: ${orderData.totalPrice || 0} ج.م</p>
+                        </div>
+                        <span class="order-status ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+                orderNumber--;
+            });
+
+            ordersListEl.innerHTML = htmlContent;
+        }
+
+    } catch (error) {
+        console.error("حدث خطأ أثناء جلب الطلبات:", error);
+        // في حال عدم عمل الـ Index الخاص بالترتيب نضع كود احتياطي بدون ترتيب
+        try {
+            const ordersListEl = document.getElementById("orders-list");
+            const qSimple = query(collection(db, "orders"), where("userEmail", "==", user.email));
+            const snapSimple = await getDocs(qSimple);
+            if(snapSimple.empty) {
+                ordersListEl.innerHTML = `<p style="text-align:center; color:var(--muted); font-size:0.9rem; margin:0;">لم تقم بأي طلبات حتى الآن 🎮</p>`;
+            } else {
+                let htmlContent = ""; let count = 1;
+                snapSimple.forEach(d => {
+                    const data = d.data();
+                    const st = data.status === "completed" ? "✅ تم التنفيذ" : "⏳ قيد الانتظار";
+                    const cl = data.status === "completed" ? "status-completed" : "status-pending";
+                    htmlContent += `<div class="order-item"><div class="order-info"><h3>طلب #${count}</h3><p>عدد الألعاب: ${(data.games||[]).length} | الإجمالي: ${data.totalPrice||0} ج.م</p></div><span class="order-status ${cl}">${st}</span></div>`;
+                    count++;
+                });
+                ordersListEl.innerHTML = htmlContent;
+            }
+        } catch(e) {
+            document.getElementById("orders-list").innerHTML = `<p style="color:var(--danger); font-size:0.8rem;">خطأ في جلب الطلبات.</p>`;
+        }
+    }
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async()=>{
@@ -236,9 +381,7 @@ document.getElementById("logoutBtn").addEventListener("click", async()=>{
         await signOut(auth);
         localStorage.removeItem("ifix_cart");
         window.location.href = "index.html";
-    } catch (error) {
-        console.error("حدث خطأ أثناء تسجيل الخروج:", error);
-    }
+    } catch (error) { console.error(error); }
 });
 </script>
 </body>
