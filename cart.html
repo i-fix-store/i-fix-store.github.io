@@ -111,7 +111,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-        import { getFirestore, collection, doc, addDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyBE2-qaGOOlmhn9QA01J5wizJ_CcMMh7qE",
@@ -128,18 +128,15 @@
 
         let currentUserEmail = "لا يوجد بريد الكتروني (زائر)";
 
-        // مراقبة حالة المستخدم لمعرفة الـ Email الخاص به عند حفظ الطلب
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUserEmail = user.email;
-                // كتابة اسم المستخدم تلقائياً في خانة الاسم إذا كان مسجلاً لتسهيل الطلب
                 if(!document.getElementById('user-name').value) {
                     document.getElementById('user-name').value = user.displayName || "";
                 }
             }
         });
 
-        // ربط زر الإرسال بالدالة المحسنة لترسل للـ Firestore أولاً
         document.getElementById("sendOrderBtn").addEventListener("click", async () => {
             const name = document.getElementById('user-name').value.trim();
             const branch = document.getElementById('branch').value;
@@ -167,17 +164,18 @@
             btn.disabled = true;
 
             try {
-                // 1. حفظ البيانات في مجموعة "orders" داخل الـ Firestore بتركيبة احترافية تلقائية الـ ID
+                // 1. حفظ الطلب في الـ Firestore مع حقل status الافتراضي "pending"
                 await addDoc(collection(db, "orders"), {
                     userName: name,
                     userEmail: currentUserEmail,
                     branch: branch,
-                    games: cart, // مصفوفة الألعاب بالكامل تحتوي على {name, size} لكل لعبة
+                    games: cart, 
                     totalPrice: totalPrice,
-                    createdAt: new Date() // تاريخ ووقت إرسال الطلب
+                    status: "pending", 
+                    createdAt: new Date() 
                 });
 
-                // 2. تشكيل رسالة الواتساب المنسقة
+                // 2. بناء رسالة الواتساب بالترتيب والتفاصيل
                 let message = `*طلب تعديل ألعاب بلايستيشن جديد - iFix Store* 🎮\n\n`;
                 message += `👤 *اسم العميل:* ${name}\n`;
                 message += `📍 *الفرع المراد الاستلام منه:* فرع ${branch}\n`;
@@ -195,16 +193,18 @@
                 message += `💵 *حساب التنزيل الإجمالي:* ${totalPrice} ج.م`;
 
                 const encodedMsg = encodeURIComponent(message);
-                const storePhoneNumber = "201015654512"; 
                 
-                // تفريغ السلة من المتصفح محلياً بعد نجاح العملية بالكامل
+                // الرقم الجديد الخاص بالمحل للواتساب
+                const storePhoneNumber = "201281398314"; 
+                
+                // مسح السلة محلياً
                 localStorage.removeItem('ifix_cart');
                 
-                // التوجيه للواتساب
+                // فتح الواتساب فوراً بالرسالة المنسقة
                 window.location.href = `https://wa.me/${storePhoneNumber}?text=${encodedMsg}`;
 
             } catch (error) {
-                console.error("خطأ أثناء حفظ الطلب في Firestore:", error);
+                console.error("خطأ أثناء حفظ الطلب:", error);
                 alert("حدث خطأ أثناء حفظ الطلب في السيرفر، يرجى المحاولة مرة أخرى.");
                 btn.innerText = "إرسال الطلب للمحل عبر واتساب ✅";
                 btn.disabled = false;
@@ -213,7 +213,6 @@
     </script>
 
     <script>
-        // الـ Logic الأساسي للسلة والمساحات بدون تغيير
         let cart = JSON.parse(localStorage.getItem('ifix_cart')) || [];
         const pricePerGame = 25;
         let currentLimit = 390;
